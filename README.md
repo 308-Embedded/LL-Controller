@@ -1,5 +1,14 @@
 # Usage
+install dependency:  
+```
+sudo apt-get install libncurses5-dev build-essential
+sudo apt install gcc-arm-none-eabi
+sudo apt install kconfig-frontends
+
+```
+Init: `cmake ..`
 Open menuconfig: `cmake --build . --target menuconfig`.  
-Save defconfig: `cmake --build . --target saveconfig`.  
+Save defconfig: `cmake --build . --target saveconfig`. 
+build: `make -j8`.  
 Download: `dfu-util -a 0 -s 0x08000000:leave -D prototype.bin`  
 Compile twice surprise.

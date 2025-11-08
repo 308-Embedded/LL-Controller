@@ -1,10 +1,11 @@
 # Usage
 install dependency:  
 ```
-sudo apt-get install libncurses5-dev build-essential
-sudo apt install gcc-arm-none-eabi
-sudo apt install kconfig-frontends
-
+sudo apt-get install libncurses5-dev genromfs build-essential  
+sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi
+sudo apt install kconfig-frontends  
+ 
+sudo apt install dfu-util  
 ```
 Init: `cmake ..`
 Open menuconfig: `cmake --build . --target menuconfig`.  

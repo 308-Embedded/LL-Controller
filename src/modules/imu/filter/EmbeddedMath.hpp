@@ -3,7 +3,7 @@
 #ifndef EMBEDDEDMATH_HPP_
 #define EMBEDDEDMATH_HPP_
 
-#include "libmcs/math.h"
+#include "math.h"
 #include "string.h"
 #define FLOAT_EPSILON 1.1920929e-7f
 

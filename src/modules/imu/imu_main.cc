@@ -162,9 +162,9 @@ extern "C"
         double gravity_noise = 0.01f;
         using namespace EmbeddedMath;
         Filter::ConsistentOrientation::ConsistentOrientationFilter consistent_filter{};
-        consistent_filter.setImuParam(Vector3f(gyro_noise, gyro_noise, gyro_noise), 400.0f);
-        consistent_filter.setMeasurementParam(Vector3f(gravity_noise, gravity_noise, gravity_noise));
-        consistent_filter.setInitialState(Quaternionf::Identity());
+        // consistent_filter.setImuParam(Vector3f(gyro_noise, gyro_noise, gyro_noise), 400.0f);
+        // consistent_filter.setMeasurementParam(Vector3f(gravity_noise, gravity_noise, gravity_noise));
+        // consistent_filter.setInitialState(Quaternionf::Identity());
         Vector3f gyro_bias = Vector3f::Zero();
         int calibation_count = 400;
         // sqrt(1.0f);
@@ -174,7 +174,7 @@ extern "C"
         uint8_t status = 0;
 
         struct timeval t;
-
+        Quaternionf Rot = Quaternionf::Identity();
         rslt = bmi08_interface_init(&bmi08dev, BMI08_SPI_INTF, BMI088_VARIANT);
         printf("bmi interface init mark %d \n", rslt);
         if (rslt == BMI08_OK)
@@ -222,12 +222,18 @@ extern "C"
                                 printf("gyro bias %f %f %f \n", gyro_bias.x(), gyro_bias.y(), gyro_bias.z());
                             }
 
-                            Vector4f input(0.0025, gyro_x - gyro_bias.x(), gyro_y - gyro_bias.y(), gyro_z - gyro_bias.z());
-                            auto consistent_prediction = consistent_filter.predict(input);
-                            Vector3f acce(acc_x, acc_y, acc_z);
-                            consistent_filter.update(acce.normalized());
+                            // Vector4f input(0.0025, gyro_x - gyro_bias.x(), gyro_y - gyro_bias.y(), gyro_z - gyro_bias.z());
+                            // auto consistent_prediction = consistent_filter.predict(input);
+                            // Vector3f acce(acc_x, acc_y, acc_z);
+                            Vector3f gyro(gyro_x - gyro_bias.x(), gyro_y - gyro_bias.y(), gyro_z - gyro_bias.z());
+
+                            Rot = Rot * EmbeddedLie::quat_Exp(gyro*0.0025);
+                            
+                            printf("%f %f %f %f \n", Rot.w(), Rot.x(), Rot.y(), Rot.z());
+                            // consistent_filter.update(acce.normalized());
                             // printf("current time %f \n acce %4.2f %4.2f %4.2f\n gyro %4.2f %4.2f %4.2f\n", current_time, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z);
-                            printf("%f %f %f %f \n", consistent_prediction.w(), consistent_prediction.x(), consistent_prediction.y(), consistent_prediction.z());
+                            // printf("%f %f %f %f \n", consistent_prediction.w(), consistent_prediction.x(), consistent_prediction.y(), consistent_prediction.z());
+                            
                         }
                         times_to_read++;
                     }

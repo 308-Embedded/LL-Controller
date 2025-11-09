@@ -12,6 +12,7 @@ extern "C" {
 #include <nuttx/config.h>
 #include <nuttx/spi/spi.h>
 // #include <nuttx/serial/serial.h>
+#include "stm32_spi.h"
 #include <arch/board/board.h>
 #include "bmi08.h"
 

@@ -8,7 +8,10 @@
 #include <unistd.h>
 #include <termios.h>
 #include <mqueue.h>
-
+#include <nuttx/clock.h>
+#include <stdlib.h>
+#include <nuttx/fs/fs.h>
+#include <nuttx/arch.h>
 #include "static_queue.hpp"
 
 struct remoteCmd
@@ -20,10 +23,10 @@ struct remoteCmd
     float q_z;
 };
 
-int serial_task(int argc, char *argv[])
+int setup_serial()
 {
     int fd;
-    fd = open("/dev/ttyS1", O_RDWR);
+    fd = open("/dev/ttyS0", O_RDWR);
 
     struct termios tty;
     if (tcgetattr(fd, &tty) != 0)
@@ -65,6 +68,14 @@ int serial_task(int argc, char *argv[])
         printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
         return -1;
     }
+    return fd;
+}
+
+int serial_task(int argc, char *argv[])
+{
+   int fd = setup_serial();
+
+
     struct mq_attr attr;
 
     attr.mq_maxmsg = 20;
@@ -163,9 +174,17 @@ extern "C"
 {
     int serial_main(int argc, char **argv)
     {
-        task_create("remote_task", 50, 16384, serial_task, NULL);
+        // task_create("remote_task", 50, 16384, serial_task, NULL);
         // task_create("receive_task", 42, 4096, receive_task, NULL);
         // serial_task();
+        int fd = setup_serial();
+        
+        static const char s[] = "abcdefghijklmnopqrstuvwxyz";
+        const int slength = sizeof(s)-1;
+        int printed = write(fd, s, slength);
+        printf("serial sent %d bytes \n", printed);
+        up_udelay(5000000);
+        close(fd);
         return 1;
     }
 }

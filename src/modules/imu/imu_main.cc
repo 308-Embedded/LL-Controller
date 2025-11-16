@@ -2,8 +2,12 @@
 #include "bmi08x.h"
 #include <cstdio>
 #include <sys/time.h>
-
+#include <mqueue.h>
+#include <nuttx/fs/fs.h>
+#include <nuttx/arch.h>
 #include "filter/ConsistentOrientationFilter.hpp"
+#include "dshot.hpp"
+#include <syslog.h>
 static float acc_x, acc_y, acc_z;
 static float gyro_x, gyro_y, gyro_z;
 
@@ -138,11 +142,24 @@ static int8_t disable_bmi08_interrupt()
     return rslt;
 }
 
+
+struct MotorCmd
+{
+    uint64_t time;
+    float u1;
+    float u2;
+    float u3;
+    float u4;
+};
+
+DShot::DShot<4> dshotDrv;
 extern "C"
 {
     int imu_main(int argc, char **argv)
     {
         int seconds = 10;
+        float k_value = 10;
+        float i_value = 10;
         for (int i = 1; i < argc; ++i)
         {
             if (strcmp(argv[i], "-t") == 0 && i + 1 < argc)
@@ -150,13 +167,54 @@ extern "C"
                 seconds = atoi(argv[i + 1]);
                 i++;
             }
+            else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc)
+            {
+                i_value = atof(argv[i + 1]);
+                i++;
+            }
+            else if (strcmp(argv[i], "-k") == 0 && i + 1 < argc)
+            {
+                k_value = atof(argv[i + 1]);
+                i++; 
+
+                dshotDrv.init();
+                dshotDrv.register_motor_channel_map(4, 2, 1, 3);
+                dshotDrv.start();
+                sleep(4);
+                dshotDrv.set_motor_throttle(0.1, 0.0, 0.0, 0.0);
+                sleep(1);
+                dshotDrv.set_motor_throttle(0.1, 0.1, 0.0, 0.0);
+                sleep(1);
+                dshotDrv.set_motor_throttle(0.1, 0.1, 0.1, 0.0);
+                sleep(1);
+                dshotDrv.set_motor_throttle(0.1, 0.1, 0.1, 0.1);
+                sleep(1);
+                dshotDrv.set_motor_throttle(0.0, 0.0, 0.0, 0.0);
+                
+            }
+            else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc)
+            {
+                dshotDrv.init();
+
+                dshotDrv.register_motor_channel_map(4, 2, 1, 3);
+                dshotDrv.start();
+                sleep(3);
+                dshotDrv.set_motor_throttle(0.1, 0.1, 0.1, 0.1);
+                sleep(1);
+                dshotDrv.set_motor_throttle(0.0, 0.0, 0.0, 0.0);
+                dshotDrv.deinit();
+                printf("init dshot \n");
+                return 0;
+                
+            }
         }
         if (seconds < 1)
         {
             printf("Invalid time value. Using default value of 10 seconds.\n");
             seconds = 10;
         }
-
+        printf("k set to %f \n", k_value);
+        printf("i set to %f \n", i_value);
         const float gyro_noise = 1e-5;
         const float gyro_random_walk = 1e-5;
         double gravity_noise = 0.01f;
@@ -174,6 +232,55 @@ extern "C"
         uint8_t status = 0;
 
         struct timeval t;
+        struct mq_attr attr;
+
+        attr.mq_maxmsg = 20;
+        attr.mq_msgsize = sizeof(MotorCmd);
+        attr.mq_flags = 0;
+        mqd_t motor_mq;
+        motor_mq = mq_open("motor", O_WRONLY | O_CREAT | O_NONBLOCK, 0666, &attr);
+        if (motor_mq == (mqd_t)-1)
+        {
+            printf("sender_thread: ERROR mq_open failed, errno=%d\n", errno);
+            return -1;
+        }
+        uint64_t currentTime;
+        // Parameters
+        const float b = 2.56379;
+        const float c = 2.12746;
+        const float mass = 0.242;
+        const float g = 9.8;
+        const float arm_length = 0.05;
+        const float torque_ratio = 1.0;
+        Vector3f Centroid = Vector3f(0.004462809917, 0.0, 0.03087603306);
+        Matrix3f J = Matrix3f::Zero();
+        J(0,0) = 0.00063507735;
+        J(1,1) = 0.00076497735;
+        J(2,2) = 0.0003916547;
+        J(2,0) = 0.0000044;
+        J(0,2) = 0.0000044;
+        Matrix4f Mixer;
+        Mixer(0,0) = 0.35355339059 / arm_length;
+        Mixer(1,0) = -0.35355339059 / arm_length;
+        Mixer(2,0) = -0.35355339059 / arm_length;
+        Mixer(3,0) = 0.35355339059 / arm_length;
+
+        Mixer(0,1) = 0.35355339059 / arm_length;
+        Mixer(1,1) = 0.35355339059 / arm_length;
+        Mixer(2,1) = -0.35355339059 / arm_length;
+        Mixer(3,1) = -0.35355339059 / arm_length;
+
+        Mixer(0,2) = -1/(torque_ratio * 4);
+        Mixer(1,2) = 1/(torque_ratio * 4);
+        Mixer(2,2) = -1/(torque_ratio * 4);
+        Mixer(3,2) = 1/(torque_ratio * 4);
+
+        Mixer(0,3) = 0.25;
+        Mixer(1,3) = 0.25;
+        Mixer(2,3) = 0.25;
+        Mixer(3,3) = 0.25;
+
+        Vector3f accum_omega = Vector3f::Zero();
         Quaternionf Rot = Quaternionf::Identity();
         rslt = bmi08_interface_init(&bmi08dev, BMI08_SPI_INTF, BMI088_VARIANT);
         printf("bmi interface init mark %d \n", rslt);
@@ -198,6 +305,7 @@ extern "C"
                     if ((status & BMI08_ACCEL_DATA_READY_INT) && (last_acce_flag == 0))
                     {
                         gettimeofday(&t, 0);
+                        
                         rslt = bmi08a_get_data(&bmi08_accel, &bmi08dev);
 
                         acc_x = static_cast<float>(bmi08_accel.x) / 1365.0f * GRAVITY_EARTH;
@@ -225,11 +333,93 @@ extern "C"
                             // Vector4f input(0.0025, gyro_x - gyro_bias.x(), gyro_y - gyro_bias.y(), gyro_z - gyro_bias.z());
                             // auto consistent_prediction = consistent_filter.predict(input);
                             // Vector3f acce(acc_x, acc_y, acc_z);
-                            Vector3f gyro(gyro_x - gyro_bias.x(), gyro_y - gyro_bias.y(), gyro_z - gyro_bias.z());
+
+                            // imu placement
+                            Vector3f gyro(-gyro_y + gyro_bias.y() , gyro_x - gyro_bias.x(), -gyro_z + gyro_bias.z());
 
                             Rot = Rot * EmbeddedLie::quat_Exp(gyro*0.0025);
                             
-                            printf("%f %f %f %f \n", Rot.w(), Rot.x(), Rot.y(), Rot.z());
+                            
+                            Quaternionf diffRot = Rot.inverse();
+                            Vector3f e_omega;
+                            if(diffRot.w()>=0)
+                            {
+                                e_omega = 2 * diffRot.head<3>();
+                            }
+                            else
+                            {
+                                e_omega = -2 * diffRot.head<3>();
+                            }
+                            Vector3f gravity_global = Vector3f(0.0, 0.0, -g) * mass;
+                            Vector3f gravity_local = Rot.toRotationMatrix() * gravity_global;
+                            Vector3f torque_gravity =  Centroid.cross(gravity_local);
+
+                            Vector3f tmp = i_value * J * (e_omega - gyro);
+
+                            Vector3f torque_des = k_value * J * e_omega + tmp + gyro.cross(J * gyro) + torque_gravity;
+
+                            Vector4f full_des = Vector4f(torque_des.x(), torque_des.y(), torque_des.z(), 3.5);
+
+                            Vector4f force_des = Mixer * full_des;
+                            currentTime = gethrtime();
+                            // syslog(LOG_INFO,"----------%llu --------- \n", currentTime);
+                            // syslog(LOG_INFO,"tmp        | %f %f %f  \n", tmp.x(), tmp.y(), tmp.z());
+                            // syslog(LOG_INFO,"raw gyro   | %f %f %f  \n", gyro.x(), gyro.y(), gyro.z());
+                            // syslog(LOG_INFO,"quaternion | %f %f %f %f \n", Rot.w(), Rot.x(), Rot.y(), Rot.z());
+                            // syslog(LOG_INFO,"e_omega    | %f %f %f \n", e_omega.x(), e_omega.y(), e_omega.z());
+                            // syslog(LOG_INFO,"acc_omega  | %f %f %f \n", accum_omega.x(), accum_omega.y(), accum_omega.z());
+                            // syslog(LOG_INFO,"tor_grav   | %f %f %f \n", torque_gravity.x(), torque_gravity.y(), torque_gravity.z());
+                            // syslog(LOG_INFO,"force_des  | %f %f %f %f\n", force_des(0), force_des(1), force_des(2), force_des(3));
+                            printf("tmp        | %f %f %f  \n", tmp.x(), tmp.y(), tmp.z());
+                            printf("raw gyro   | %f %f %f  \n", gyro.x(), gyro.y(), gyro.z());
+                            printf("quaternion | %f %f %f %f \n", Rot.w(), Rot.x(), Rot.y(), Rot.z());
+                            printf("e_omega    | %f %f %f \n", e_omega.x(), e_omega.y(), e_omega.z());
+                            printf("acc_omega  | %f %f %f \n", accum_omega.x(), accum_omega.y(), accum_omega.z());
+                            printf("tor_grav   | %f %f %f \n", torque_gravity.x(), torque_gravity.y(), torque_gravity.z());
+                            printf("torque_des | %f %f %f \n", torque_des.x(), torque_des.y(), torque_des.z());
+                            printf("force_des  | %f %f %f %f\n", force_des(0), force_des(1), force_des(2), force_des(3));
+                            struct MotorCmd cmd;
+                            if(force_des(0)<=0)
+                            {
+                                cmd.u1 = 0.05;
+                            }
+                            else
+                            {
+                                cmd.u1 = (-b + sqrt(b*b+4*c*force_des(0)))/(2*c);
+                            }
+
+                            if(force_des(1)<=0)
+                            {
+                                cmd.u2 = 0.05;
+                            }
+                            else
+                            {
+                                cmd.u2 = (-b + sqrt(b*b+4*c*force_des(1)))/(2*c);
+                            }
+
+                            if(force_des(2)<=0)
+                            {
+                                cmd.u3 = 0.05;
+                            }
+                            else
+                            {
+                                cmd.u3 = (-b + sqrt(b*b+4*c*force_des(2)))/(2*c);
+                            }
+
+                            if(force_des(3)<=0)
+                            {
+                                cmd.u4 = 0.05;
+                            }
+                            else
+                            {
+                                cmd.u4 = (-b + sqrt(b*b+4*c*force_des(3)))/(2*c);
+                            }
+                            
+                            cmd.time = currentTime;
+                            dshotDrv.set_motor_throttle(cmd.u1, cmd.u2, cmd.u3, cmd.u4);
+                            printf("motor_des  | %f %f %f %f\n", cmd.u1, cmd.u2, cmd.u3, cmd.u4);
+                            // syslog(LOG_INFO,"motor_des  | %f %f %f %f\n", cmd.u1, cmd.u2, cmd.u3, cmd.u4);
+                            // mq_send(motor_mq, reinterpret_cast<const char *>(&cmd), sizeof(MotorCmd), 42);
                             // consistent_filter.update(acce.normalized());
                             // printf("current time %f \n acce %4.2f %4.2f %4.2f\n gyro %4.2f %4.2f %4.2f\n", current_time, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z);
                             // printf("%f %f %f %f \n", consistent_prediction.w(), consistent_prediction.x(), consistent_prediction.y(), consistent_prediction.z());
@@ -242,8 +432,13 @@ extern "C"
 
                     if (times_to_read > seconds * 400)
                     {
+                        struct MotorCmd cmd = {currentTime, 0.0, 0.0, 0.0, 0.0};
+                        printf("motor_des  | %f %f %f %f\n", cmd.u1, cmd.u2, cmd.u3, cmd.u4);
+                        dshotDrv.set_motor_throttle(0.0, 0.0, 0.0, 0.0); 
+                        // mq_send(motor_mq, reinterpret_cast<const char *>(&cmd), sizeof(MotorCmd), 42);
                         break;
                     }
+
                 }
                 rslt = disable_bmi08_interrupt();
             }

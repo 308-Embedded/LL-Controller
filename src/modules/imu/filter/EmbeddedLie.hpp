@@ -91,7 +91,7 @@ namespace EmbeddedLie
 
         Matrix<Scalar, 3, 3> w_x = D * (R - R.transpose());
 
-        if (R != Matrix<Scalar, 3, 3>::Identity(3, 3))
+        if (R != Matrix<Scalar, 3, 3>::Identity())
         {
             Matrix<Scalar, 3, 1> vec(w_x(2, 1), w_x(0, 2), w_x(1, 0));
             return vec;

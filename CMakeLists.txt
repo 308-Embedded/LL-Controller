@@ -81,7 +81,7 @@ list(APPEND config_module_list src/modules/hello_nuttx)
 list(APPEND config_module_list src/modules/imu)
 list(APPEND config_module_list src/modules/serial)
 # list(APPEND config_module_list src/modules/pwm)
-list(APPEND config_module_list src/modules/dshot)
+# list(APPEND config_module_list src/modules/dshot)
 
 # Add all modules
 foreach(module ${config_module_list}) 

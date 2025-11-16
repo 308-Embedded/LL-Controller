@@ -596,8 +596,8 @@ namespace EmbeddedTypes
             result.w() = this->w();
             result.x() = -this->x();
             result.y() = -this->y();
-            result.z() = -this->z();
-            result.normalize();
+            result.z() = -this->z();;
+            result /= (result.norm() * result.norm());
             return result;
         }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dshot_lower_drv.hpp"
+#include "../dshot_lower_drv.hpp"
 
 namespace DShot
 {

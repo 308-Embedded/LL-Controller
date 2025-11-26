@@ -46,7 +46,7 @@ const uint32_t TIM_CCR_ADDRESS[DSHOT_CHANNEL_NUM] = {
 };
 
 // channel index start from 0
-void set_channel_throttle(const uint8_t channel, const uint16_t throttle)
+static inline void set_channel_throttle(const uint8_t channel, const uint16_t throttle)
 {
     uint16_t packet = 0;
     uint16_t throttle_int = throttle;
@@ -62,7 +62,7 @@ void set_channel_throttle(const uint8_t channel, const uint16_t throttle)
     return;
 }
 // currently assume only use TIM1
-void stm32_dshot_timer_init(void)
+static inline void stm32_dshot_timer_init(void)
 {
     tim_dev = stm32_tim_init(1);
     STM32_TIM_SETCLOCK(tim_dev, 10000000); // 10MHZ  0,1 micro seconds
@@ -83,7 +83,7 @@ void stm32_dshot_timer_init(void)
     return;
 }
 
-void stm32_dshot_timer_deinit(void)
+static inline void stm32_dshot_timer_deinit(void)
 {
     for (size_t i = 0; i < DSHOT_CHANNEL_NUM; i++)
     {
@@ -94,7 +94,7 @@ void stm32_dshot_timer_deinit(void)
     return;
 }
 
-void stm32_dshot_dma_init(void)
+static inline void stm32_dshot_dma_init(void)
 {
     for (size_t i = 0; i < DSHOT_CHANNEL_NUM; i++)
     {
@@ -113,7 +113,7 @@ void stm32_dshot_dma_init(void)
     return;
 }
 
-void stm32_dshot_dma_deinit(void)
+static inline void stm32_dshot_dma_deinit(void)
 {
     for (size_t i = 0; i < DSHOT_CHANNEL_NUM; i++)
     {
@@ -123,7 +123,7 @@ void stm32_dshot_dma_deinit(void)
     return;
 }
 
-void dshot_all_channel_start(void)
+static inline void dshot_all_channel_start(void)
 {
     for (size_t i = 0; i < DSHOT_CHANNEL_NUM; i++)
     {
@@ -134,7 +134,7 @@ void dshot_all_channel_start(void)
     STM32_TIM_ENABLE(tim_dev);
 }
 
-void dshot_all_channel_stop(void)
+static inline void dshot_all_channel_stop(void)
 {
     for (size_t i = 0; i < DSHOT_CHANNEL_NUM; i++)
     {

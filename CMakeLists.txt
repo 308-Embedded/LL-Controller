@@ -71,6 +71,9 @@ list(APPEND NUTTX_LIBS nuttx_sched nuttx_drivers nuttx_boards nuttx_m nuttx_c nu
 #-------------------------------------------------------------------------
 
 set(config_module_list)
+#libraries
+list(APPEND config_module_list src/libraries)
+
 # Custom board
 file(RELATIVE_PATH board_src_rel ${CMAKE_SOURCE_DIR} ${NUTTX_BOARD_PATH}/${NUTTX_BOARD})
 if(EXISTS ${NUTTX_BOARD_PATH}/${NUTTX_BOARD}/include)

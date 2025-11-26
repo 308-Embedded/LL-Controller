@@ -46,6 +46,7 @@ define_property(GLOBAL PROPERTY CUSTOM_SRC_FILES
 include(stm32h7)
 include(common_flags)
 include(add_module)
+include(add_library)
 include(fetch_third_library)
 
 #-------------------------------------------------------------------------
@@ -77,11 +78,12 @@ if(EXISTS ${NUTTX_BOARD_PATH}/${NUTTX_BOARD}/include)
 endif()
 
 list(APPEND config_module_list ${board_src_rel}/src)
-list(APPEND config_module_list src/modules/hello_nuttx)
-list(APPEND config_module_list src/modules/imu)
+
+# list(APPEND config_module_list src/modules/imu)
 list(APPEND config_module_list src/modules/serial)
 # list(APPEND config_module_list src/modules/pwm)
-# list(APPEND config_module_list src/modules/dshot)
+list(APPEND config_module_list src/modules/dshot)
+list(APPEND config_module_list src/modules/hello_nuttx)
 
 # Add all modules
 foreach(module ${config_module_list}) 

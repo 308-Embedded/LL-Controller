@@ -32,6 +32,8 @@ const struct Registry gRegistedMembers[] = {
 
 SharedTable* gSharedTable;
 
+static uint8_t initialized = 0;
+
 int st_initialize()
 {   
     dtcm_initialize();
@@ -55,6 +57,7 @@ int st_initialize()
         gSharedTable[i].tag = gRegistedMembers[i].tag;
         gSharedTable[i].address = dtcm_memalign(32, gRegistedMembers[i].size); // 32byte alignment
     }
+    initialized = 1;
     return 0;
 } 
 
@@ -82,6 +85,14 @@ int st_write(const int entry, const void* data)
     memcpy(gSharedTable[entry].address, data, gRegistedMembers[entry].size);
     UP_DMB();
     return 0;
+}
+
+int st_status()
+{
+    if(initialized)
+        return 0;
+    else 
+        return -1;
 }
 
 int st_read(const int entry, void* data)

@@ -18,6 +18,8 @@ int st_read(const int entry, void* data);
 
 int st_list();
 
+int st_status();
+
 const char* tag_to_string(int tag);
 
 #ifdef __cplusplus

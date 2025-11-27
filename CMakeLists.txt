@@ -86,6 +86,7 @@ list(APPEND config_module_list ${board_src_rel}/src)
 list(APPEND config_module_list src/modules/serial)
 # list(APPEND config_module_list src/modules/pwm)
 list(APPEND config_module_list src/modules/dshot)
+list(APPEND config_module_list src/modules/shared_table)
 list(APPEND config_module_list src/modules/hello_nuttx)
 
 # Add all modules

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../dshot_lower_drv.hpp"
+#include "../dshot_internal.h"
 
 namespace DShot
 {
@@ -17,8 +17,8 @@ namespace DShot
         {
             if (init_flag == 0)
             {
-                stm32_dshot_timer_init();
-                stm32_dshot_dma_init();
+                bdshot_initialize();
+
                 init_flag = 1;
             }
         }
@@ -28,9 +28,7 @@ namespace DShot
         {
             if (init_flag == 1)
             {
-                dshot_all_channel_stop();
-                stm32_dshot_timer_deinit();
-                stm32_dshot_dma_deinit();
+                bdshot_deinitialize();
                 init_flag = 0;
             }
         }
@@ -41,8 +39,6 @@ namespace DShot
         {
             if (init_flag == 1)
             {
-                set_motor_throttle(0.0f, 0.0f, 0.0f, 0.0f);
-                dshot_all_channel_start();
                 
                 return true;
             }
@@ -55,7 +51,6 @@ namespace DShot
         {
             if (init_flag == 1)
             {
-                dshot_all_channel_stop();
                 return true;
             }
             return false;
@@ -88,14 +83,17 @@ namespace DShot
         {
             if (motor_channel_mapped == 0)
                 return;
-            uint16_t motor1_throttle = motor1 > 0.001f ? uint16_t(motor1 * 2000.0f) + 48 : uint16_t(0);
-            uint16_t motor2_throttle = motor2 > 0.001f ? uint16_t(motor2 * 2000.0f) + 48 : uint16_t(0);
-            uint16_t motor3_throttle = motor3 > 0.001f ? uint16_t(motor3 * 2000.0f) + 48 : uint16_t(0);
-            uint16_t motor4_throttle = motor4 > 0.001f ? uint16_t(motor4 * 2000.0f) + 48 : uint16_t(0);
-            set_channel_throttle(motor_channel_map[0], motor1_throttle);
-            set_channel_throttle(motor_channel_map[1], motor2_throttle);
-            set_channel_throttle(motor_channel_map[2], motor3_throttle);
-            set_channel_throttle(motor_channel_map[3], motor4_throttle);
+            uint16_t motor1_throttle = motor1 > 0.001f ? uint16_t(motor1 * 2000.0f) + 48 : 48;
+            uint16_t motor2_throttle = motor2 > 0.001f ? uint16_t(motor2 * 2000.0f) + 48 : 48;
+            uint16_t motor3_throttle = motor3 > 0.001f ? uint16_t(motor3 * 2000.0f) + 48 : 48;
+            uint16_t motor4_throttle = motor4 > 0.001f ? uint16_t(motor4 * 2000.0f) + 48 : 48;
+
+            return;
+        }
+
+        void lock()
+        {
+
             return;
         }
 

@@ -1,8 +1,9 @@
 ll_add_library(
   LIB_NAME library__dshot
   SRCS
-  empty.cc
-  dshot_lower_drv.hpp
+  dshot_internal.c
   INTERFACES
   interface
+  .
+  DEPENDS  nuttx_arch nuttx_mm 
 )

@@ -19,7 +19,7 @@
 #define BDSHOT_DMA_CH   DMAMAP_DMA12_TIM1CH1_0
 #define BDSHOT_DMA_IRQ  STM32_IRQ_DMA1S0
 
-#define BDSHOT_OVERSAMPLE 8
+#define BDSHOT_OVERSAMPLE 4
 #define MOTOR_POLES_NUMBER 12
 #define DSHOT_CHANNEL_NUM 4
 
@@ -152,7 +152,7 @@ void bdshot_initialize()
     STM32_TIM_SETCLOCK(tim_dev, 120000000); // 120MHZ 
     STM32_TIM_SETMODE(tim_dev, STM32_TIM_MODE_UP);
     STM32_TIM_SETCOUNTER(tim_dev, 0); // initial value for counter
-    STM32_TIM_SETPERIOD(tim_dev, 49); // DSHOT 300
+    STM32_TIM_SETPERIOD(tim_dev, 99); // DSHOT 300
     // STM32_TIM_SETPERIOD(tim_dev, 24); // DSHOT 600
     STM32_TIM_ENABLEINT(tim_dev, ATIM_DIER_UDE |
                                      ATIM_DIER_CC1DE); // enable dma update interrupt
@@ -228,7 +228,7 @@ void bdshot_start()
     STM32_TIM_DISABLE(tim_dev);
     bdshot_config_gpio(0);
     STM32_TIM_SETCOUNTER(tim_dev, 0); // initial value for counter
-    STM32_TIM_SETPERIOD(tim_dev, 49); // 400k bitrate
+    STM32_TIM_SETPERIOD(tim_dev, 99); // 400k bitrate
     stm32_dmasetup(dma_handles, &dma_tx_configs);
     up_invalidate_dcache((uintptr_t)tx_buffer, (uintptr_t)(tx_buffer + DSHOT_TXBUF_LENGTH));
     STM32_TIM_ENABLE(tim_dev);
@@ -253,33 +253,21 @@ void bdshot_write(int channel, uint32_t throttle)
     {
         if((packet & 0x8000))
         {
-            tx_buffer[i * 8 + 0] &=  low_bits;
-            tx_buffer[i * 8 + 1] &=  low_bits;
-            tx_buffer[i * 8 + 2] &=  low_bits;
-            tx_buffer[i * 8 + 3] &=  low_bits;
-            tx_buffer[i * 8 + 4] &=  low_bits;
-            tx_buffer[i * 8 + 5] |=  high_bits;
-            tx_buffer[i * 8 + 6] |=  high_bits;
-            tx_buffer[i * 8 + 7] |=  high_bits;
+            tx_buffer[i * 4 + 0] &=  low_bits;
+            tx_buffer[i * 4 + 1] &=  low_bits;
+            tx_buffer[i * 4 + 2] &=  low_bits;
+            tx_buffer[i * 4 + 3] |=  high_bits;
 
         }
         else
         {
-            tx_buffer[i * 8 + 0] &=  low_bits;
-            tx_buffer[i * 8 + 1] &=  low_bits;
-            tx_buffer[i * 8 + 2] |=  high_bits;
-            tx_buffer[i * 8 + 3] |=  high_bits;
-            tx_buffer[i * 8 + 4] |=  high_bits;
-            tx_buffer[i * 8 + 5] |=  high_bits;
-            tx_buffer[i * 8 + 6] |=  high_bits;
-            tx_buffer[i * 8 + 7] |=  high_bits;
+            tx_buffer[i * 4 + 0] &=  low_bits;
+            tx_buffer[i * 4 + 1] |=  high_bits;
+            tx_buffer[i * 4 + 2] |=  high_bits;
+            tx_buffer[i * 4 + 3] |=  high_bits;
         }
         packet <<= 1;
     }
-    tx_buffer[DSHOT_TXBUF_LENGTH -8] |= high_bits;
-    tx_buffer[DSHOT_TXBUF_LENGTH -7] |= high_bits;
-    tx_buffer[DSHOT_TXBUF_LENGTH -6] |= high_bits;
-    tx_buffer[DSHOT_TXBUF_LENGTH -5] |= high_bits;
     tx_buffer[DSHOT_TXBUF_LENGTH -4] |= high_bits;
     tx_buffer[DSHOT_TXBUF_LENGTH -3] |= high_bits;
     tx_buffer[DSHOT_TXBUF_LENGTH -2] |= high_bits;

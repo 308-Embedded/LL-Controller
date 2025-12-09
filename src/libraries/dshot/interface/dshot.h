@@ -4,12 +4,11 @@
 
 namespace DShot
 {
-
-    template <int channels>
+#define DSHOT_CHANNELS 4
     class DShot
     {
     public:
-        DShot() = default;
+        DShot() {init(); };
         ~DShot() { deinit(); }
 
         /// @brief initialize the dshot driver
@@ -31,29 +30,6 @@ namespace DShot
                 bdshot_deinitialize();
                 init_flag = 0;
             }
-        }
-
-        /// @brief start all dshot channel signals
-        /// @return
-        bool start()
-        {
-            if (init_flag == 1)
-            {
-                
-                return true;
-            }
-            return false;
-        }
-
-        /// @brief stop all dshot channel signals
-        /// @return
-        bool stop()
-        {
-            if (init_flag == 1)
-            {
-                return true;
-            }
-            return false;
         }
 
         /// @brief register the corresponding dshot channel of each motor
@@ -83,23 +59,40 @@ namespace DShot
         {
             if (motor_channel_mapped == 0)
                 return;
-            uint16_t motor1_throttle = motor1 > 0.001f ? uint16_t(motor1 * 2000.0f) + 48 : 48;
-            uint16_t motor2_throttle = motor2 > 0.001f ? uint16_t(motor2 * 2000.0f) + 48 : 48;
-            uint16_t motor3_throttle = motor3 > 0.001f ? uint16_t(motor3 * 2000.0f) + 48 : 48;
-            uint16_t motor4_throttle = motor4 > 0.001f ? uint16_t(motor4 * 2000.0f) + 48 : 48;
+            uint16_t motor1_throttle = motor1 > min_throttle ? uint16_t(motor1 * 2000.0f) + 1048 : 1000;
+            uint16_t motor2_throttle = motor2 > min_throttle ? uint16_t(motor2 * 2000.0f) + 1048 : 1000;
+            uint16_t motor3_throttle = motor3 > min_throttle ? uint16_t(motor3 * 2000.0f) + 1048 : 1000;
+            uint16_t motor4_throttle = motor4 > min_throttle ? uint16_t(motor4 * 2000.0f) + 1048 : 1000;
 
+            uint32_t tmp = bdshot_read(motor_channel_map[0]);
+            rpm_values[motor_channel_map[0]] = (tmp == 0xFFFFFFFF) ? rpm_values[motor_channel_map[0]] : tmp;
+            tmp = bdshot_read(motor_channel_map[1]);
+            rpm_values[motor_channel_map[1]] = (tmp == 0xFFFFFFFF) ? rpm_values[motor_channel_map[1]] : tmp;
+            tmp = bdshot_read(motor_channel_map[2]);
+            rpm_values[motor_channel_map[2]] = (tmp == 0xFFFFFFFF) ? rpm_values[motor_channel_map[2]] : tmp;
+            tmp = bdshot_read(motor_channel_map[3]);
+            rpm_values[motor_channel_map[3]] = (tmp == 0xFFFFFFFF) ? rpm_values[motor_channel_map[3]] : tmp;
+
+            bdshot_write(motor_channel_map[0], motor1_throttle);
+            bdshot_write(motor_channel_map[1], motor2_throttle);
+            bdshot_write(motor_channel_map[2], motor3_throttle);
+            bdshot_write(motor_channel_map[3], motor4_throttle);
+
+            bdshot_start();
             return;
         }
 
-        void lock()
+        uint32_t* get_motor_rpms(void)
         {
-
-            return;
+            return this->rpm_values;
         }
 
     private:
         uint8_t init_flag = 0;
         uint8_t motor_channel_mapped = 0;
-        uint8_t motor_channel_map[channels];
+        uint8_t motor_channel_map[DSHOT_CHANNELS];
+        uint32_t rpm_values[DSHOT_CHANNELS]={0};
+        float min_throttle = 0.1f;
+        float max_throttle = 0.9f;
     };
 }

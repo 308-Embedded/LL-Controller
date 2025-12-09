@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include <sys/time.h>
-#include <dshot_internal.h>
+#include <dshot.h>
 
 extern "C"
 {
@@ -18,32 +18,32 @@ extern "C"
                 i++;
             }
         }
+        DShot::DShot mDshot{};
+        mDshot.register_motor_channel_map(1, 2, 3, 4);
 
-        bdshot_initialize();
-
-        bdshot_write(1, 1000);
-        bdshot_write(2, 1000);
-        bdshot_write(3, 1000);
-        bdshot_write(4, 1000);
+        mDshot.set_motor_throttle(0,0,0,0);
 
         int cnt =0;
         while(cnt < 5000)
         {
             usleep(1000);
             cnt++;
-            printf("rpm %d \n",bdshot_read(1));
-            if(cnt>=4000)
+            auto rpms = mDshot.get_motor_rpms();
+            if(cnt % 20 ==0)
             {
-                bdshot_write(1, 1600);
-                bdshot_write(2, 1600);
-                bdshot_write(3, 1600);
-                bdshot_write(4, 1600);
+                printf("rpm  %d  %d  %d  %d\n", rpms[0], rpms[1], rpms[2], rpms[3]);
+            }
+            if(cnt>=3000)
+            {
+                mDshot.set_motor_throttle(0.2, 0.2, 0.2, 0.2);
+            }
+            else
+            {
+                mDshot.set_motor_throttle(0.0, 0.0, 0.0, 0.0);
             }
             usleep(1000);
- 
-            bdshot_start();
         }
-        bdshot_deinitialize();
+
         return 0;
     }
 }

@@ -247,8 +247,8 @@ void bdshot_write(int channel, uint32_t throttle)
     uint16_t csum = (~(csum_data ^ (csum_data >> 4) ^ (csum_data >> 8))) & 0xf; //bidirectional
     uint16_t packet = (throttle_int << 4) | csum;
     uint16_t orig_odr = bdshot_read_gpio();
-    uint16_t high_bits = (1 << BDSHOT_GPIO_PINS[channel -1]);
-    uint16_t low_bits = ~(1 << BDSHOT_GPIO_PINS[channel -1]);
+    uint16_t high_bits = (1 << BDSHOT_GPIO_PINS[channel]);
+    uint16_t low_bits = ~(1 << BDSHOT_GPIO_PINS[channel]);
     for(int i = 0; i < 16; i++)
     {
         if((packet & 0x8000))
@@ -321,7 +321,7 @@ void sample_io()
 uint32_t bdshot_read(int channel)
 {
     // printf("bdshot read %llu \n", gethrtime());
-    int motor_shift = BDSHOT_GPIO_PINS[channel-1];
+    int motor_shift = BDSHOT_GPIO_PINS[channel];
     uint16_t i = 0;
     uint16_t previous_i = 0;
     uint16_t end_i = 0;

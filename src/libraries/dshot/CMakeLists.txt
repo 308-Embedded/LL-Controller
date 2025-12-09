@@ -4,6 +4,5 @@ ll_add_library(
   dshot_internal.c
   INTERFACES
   interface
-  .
   DEPENDS  nuttx_arch nuttx_mm 
 )

@@ -2,9 +2,11 @@
 #include "bmi08_port.h"
 #include "bmi08x.h"
 #include <stm32_tim.h>
+#include <time.h>
 #include <stm32_gpio.h>
 #include <arch/board/board.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "interface/imu_bmi088.h"
 
@@ -29,6 +31,12 @@ static struct bmi08_accel_int_channel_cfg accel_int_config;
 
 /*! bmi08 gyro int config */
 static struct bmi08_gyro_int_channel_cfg gyro_int_config;
+
+static uint8_t gyro_ready = 0;
+struct timespec gyro_ts;
+static uint8_t acce_ready = 0;
+struct timespec acce_ts;
+
 
 int bmi088_powerup()
 {
@@ -77,18 +85,22 @@ int bmi088_powerup()
     return rslt;
 }
 
-uint32_t debug_value = 0;
-
-static inline int data_ready_irq(int id, xcpt_t irqhandler, void *arg)
+static inline int acce_ready_irq(int id, xcpt_t irqhandler, void *arg)
 {
-  int ret = -EINVAL;
+    clock_gettime(CLOCK_REALTIME, &acce_ts);
+    int ret = -EINVAL;
+    acce_ready = 1;
+    ret = stm32_gpiosetevent(GPIO_ACCE0_INT, false, true, true, (xcpt_t)acce_ready_irq, arg);
+    return ret;
+}
 
-  /* The following should be atomic */
-  debug_value++;
-
-  ret = stm32_gpiosetevent(GPIO_ACCE0_INT, false, true, true, (xcpt_t)data_ready_irq, arg);
-
-  return ret;
+static inline int gyro_ready_irq(int id, xcpt_t irqhandler, void *arg)
+{
+    clock_gettime(CLOCK_REALTIME, &gyro_ts);
+    int ret = -EINVAL;
+    gyro_ready = 1;
+    ret = stm32_gpiosetevent(GPIO_GYRO0_INT, false, true, true, (xcpt_t)gyro_ready_irq, arg);
+    return ret;
 }
 
 static inline int config_data_ready()
@@ -124,7 +136,9 @@ static inline int config_data_ready()
     if (rslt == BMI08_OK)
     {
         stm32_configgpio(GPIO_ACCE0_INT);
-        stm32_gpiosetevent(GPIO_ACCE0_INT, false, true, true, (xcpt_t)data_ready_irq, NULL);
+        stm32_configgpio(GPIO_GYRO0_INT);
+        stm32_gpiosetevent(GPIO_ACCE0_INT, false, true, true, (xcpt_t)acce_ready_irq, NULL);
+        stm32_gpiosetevent(GPIO_GYRO0_INT, false, true, true, (xcpt_t)gyro_ready_irq, NULL);
     }
 
     return rslt;
@@ -142,6 +156,38 @@ void bmi088_initialize()
     {
         printf("config failed \n");
     }
+}
+
+bool bmi088_acce_ready()
+{
+    return acce_ready;
+}
+
+bool bmi088_gyro_ready()
+{
+    return gyro_ready;
+}
+
+uint64_t bmi088_acce_read(float* data)
+{
+    int8_t rslt;
+    rslt = bmi08a_get_data(&bmi08_accel, &bmi08dev);
+    data[0] = (float)(bmi08_accel.x) / 1365.0f * GRAVITY_EARTH;
+    data[1] = (float)(bmi08_accel.y) / 1365.0f * GRAVITY_EARTH;
+    data[2] = (float)(bmi08_accel.z) / 1365.0f * GRAVITY_EARTH;
+    acce_ready = 0;
+    return acce_ts.tv_sec * 1000000000 + (acce_ts.tv_nsec);
+}
+
+uint64_t bmi088_gyro_read(float* data)
+{
+    int8_t rslt;
+    rslt = bmi08g_get_data(&bmi08_gyro, &bmi08dev);
+    data[0] = (float)(bmi08_gyro.x) / 16.384f * DEG_TO_RAD;
+    data[1] = (float)(bmi08_gyro.y) / 16.384f * DEG_TO_RAD;
+    data[2] = (float)(bmi08_gyro.z) / 16.384f * DEG_TO_RAD;
+    gyro_ready = 0;
+    return gyro_ts.tv_sec * 1000000000 + (gyro_ts.tv_nsec);
 }
 
 void bmi088_deinitialize()

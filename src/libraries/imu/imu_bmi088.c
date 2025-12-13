@@ -192,5 +192,14 @@ uint64_t bmi088_gyro_read(float* data)
 
 void bmi088_deinitialize()
 {
+    stm32_unconfiggpio(GPIO_ACCE0_INT);
+    stm32_unconfiggpio(GPIO_GYRO0_INT);
+
+    bmi08dev.gyro_cfg.power = BMI08_GYRO_PM_SUSPEND;
+    rslt = bmi08g_set_power_mode(&bmi08dev);
+
+    bmi08dev.accel_cfg.power = BMI08_ACCEL_PM_SUSPEND;   
+    rslt = bmi08a_set_power_mode(&bmi08dev);
     
+    return;
 }

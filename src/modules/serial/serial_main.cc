@@ -23,7 +23,7 @@ struct remoteCmd
     float q_z;
 };
 
-int setup_serial()
+static int setup_serial()
 {
     int fd;
     fd = open("/dev/ttyS0", O_RDWR);

@@ -63,9 +63,10 @@ extern "C"
         float data[6];
         int cnt =0;
         char buffer[64];
-        while(cnt < 20 * 1000)
+        while(cnt < 20 * 400)
         {
             cnt++;
+            bmi088_wait();
             if(bmi088_acce_ready())
             {
                 time = bmi088_gyro_read(data);
@@ -74,7 +75,6 @@ extern "C"
                 ssize_t send_count = write(fd, buffer, j);
                 
             }
-            usleep(1000);
         }
         close(fd);
         bmi088_deinitialize();

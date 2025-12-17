@@ -12,5 +12,5 @@ ll_add_library(
   bmi08x.h
   INTERFACES
   interface
-  DEPENDS nuttx_arch nuttx_m
+  DEPENDS nuttx_arch nuttx_m nuttx_c
 )

@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#include <semaphore.h>
+
 #include "interface/imu_bmi088.h"
 
 #define GRAVITY_EARTH (9.80665f)
@@ -32,10 +34,17 @@ static struct bmi08_accel_int_channel_cfg accel_int_config;
 /*! bmi08 gyro int config */
 static struct bmi08_gyro_int_channel_cfg gyro_int_config;
 
-static uint8_t gyro_ready = 0;
-struct timespec gyro_ts;
-static uint8_t acce_ready = 0;
-struct timespec acce_ts;
+static volatile uint8_t gyro_ready = 0;
+static volatile struct timespec gyro_ts;
+static volatile uint8_t acce_ready = 0;
+static volatile struct timespec acce_ts;
+
+static sem_t imu_rdy;
+
+void bmi088_wait()
+{
+    sem_wait(&imu_rdy);
+}
 
 
 int bmi088_powerup()
@@ -91,6 +100,7 @@ static inline int acce_ready_irq(int id, xcpt_t irqhandler, void *arg)
     int ret = -EINVAL;
     acce_ready = 1;
     ret = stm32_gpiosetevent(GPIO_ACCE0_INT, false, true, true, (xcpt_t)acce_ready_irq, arg);
+    sem_post(&imu_rdy);
     return ret;
 }
 
@@ -156,6 +166,8 @@ void bmi088_initialize()
     {
         printf("config failed \n");
     }
+
+    sem_init(&imu_rdy, 0, 0);
 }
 
 bool bmi088_acce_ready()
@@ -192,6 +204,7 @@ uint64_t bmi088_gyro_read(float* data)
 
 void bmi088_deinitialize()
 {
+    int8_t rslt;
     stm32_unconfiggpio(GPIO_ACCE0_INT);
     stm32_unconfiggpio(GPIO_GYRO0_INT);
 
@@ -201,5 +214,6 @@ void bmi088_deinitialize()
     bmi08dev.accel_cfg.power = BMI08_ACCEL_PM_SUSPEND;   
     rslt = bmi08a_set_power_mode(&bmi08dev);
     
+    sem_destroy(&imu_rdy);
     return;
 }

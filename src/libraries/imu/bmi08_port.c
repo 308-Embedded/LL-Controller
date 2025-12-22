@@ -22,6 +22,10 @@ uint8_t gyro_dev_add;
 
 struct spi_dev_s *spi;
 
+static uint8_t read_buffer[1024];
+static uint8_t write_buffer[1024];
+static uint8_t dummy_buffer[1024];
+
  // we dont port i2c interface currently
 /*!
  * I2C read function map to COINES platform
@@ -54,20 +58,21 @@ BMI08_INTF_RET_TYPE bmi08_spi_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t
 {
     uint8_t device_addr = *(uint8_t*)intf_ptr;
 
-
     (void)intf_ptr;
     SPI_LOCK(spi, true);
     SPI_SELECT(spi, device_addr, true);
     // SPI_SELECT(spi, 1, false);
     // SPI_SELECT(spi, 0, true);
 
-    SPI_SEND(spi, reg_addr);
-
-    for(size_t i = 0; i<len; i++)
-    {
-        *(reg_data + i) = SPI_SEND(spi, 0xff);
-        // printf("data got %d \n", *(reg_data + i));
-    }
+    // SPI_SEND(spi, reg_addr);
+    dummy_buffer[0] = reg_addr;
+    // for(size_t i = 0; i<len; i++)
+    // {
+    //     *(reg_data + i) = SPI_SEND(spi, 0xff);
+    //     // printf("data got %d \n", *(reg_data + i));
+    // }
+    SPI_EXCHANGE(spi, dummy_buffer, read_buffer, len + 1);
+    memcpy(reg_data, &read_buffer[1], len);
     SPI_SELECT(spi, device_addr, false);
     SPI_LOCK(spi, false);
 
@@ -81,18 +86,20 @@ BMI08_INTF_RET_TYPE bmi08_spi_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t
 BMI08_INTF_RET_TYPE bmi08_spi_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
     uint8_t device_addr = *(uint8_t*)intf_ptr;
-
     (void)intf_ptr;
     SPI_LOCK(spi, true);
     SPI_SELECT(spi, device_addr, true);
     // return coines_write_spi(COINES_SPI_BUS_0, device_addr, reg_addr, (uint8_t *)reg_data, (uint16_t)len);
-    SPI_SEND(spi, reg_addr);
+    // SPI_SEND(spi, reg_addr);
+    write_buffer[0] = reg_addr;
+    memcpy(&write_buffer[1], reg_data, len);
+    // for(size_t i = 0; i<len; i++)
+    // {
+    //     SPI_SEND(spi, *(reg_data + i));
+    //     // printf("data write %d \n", *(reg_data + i));
+    // }
+    SPI_EXCHANGE(spi, write_buffer, read_buffer, len+1);
 
-    for(size_t i = 0; i<len; i++)
-    {
-        SPI_SEND(spi, *(reg_data + i));
-        // printf("data write %d \n", *(reg_data + i));
-    }
     SPI_SELECT(spi, device_addr, false);
     SPI_LOCK(spi, false);
     return BMI08_INTF_RET_SUCCESS;
@@ -177,7 +184,7 @@ int8_t bmi08_interface_init(struct bmi08_dev *bmi08, uint8_t intf, uint8_t varia
 {
     int8_t rslt = BMI08_OK;
     // struct coines_board_info board_info;
-
+    memset(dummy_buffer, 0xFF, 1024);
     spi = stm32_spibus_initialize(1);
 
     if (bmi08 != NULL)

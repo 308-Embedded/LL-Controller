@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <dshot.h>
+#include <time.h>
 
 static int setup_serial()
 {
@@ -57,25 +59,55 @@ extern "C"
 {
     int vibration_main(int argc, FAR char *argv[])
     {
+        struct timespec ts_0, ts_1;
+        DShot::DShot mDshot{};
+        mDshot.register_motor_channel_map(1, 2, 3, 4);
+        mDshot.set_motor_throttle(0,0,0,0);
+        
         bmi088_initialize();
         int fd = setup_serial();
         uint64_t time;
         float data[6];
         int cnt =0;
-        char buffer[64];
-        while(cnt < 20 * 400)
+        char buffer[128];
+        int valid_data = 0;
+        while(cnt < 30 * 400)
         {
             cnt++;
             bmi088_wait();
-            if(bmi088_acce_ready())
+            if(bmi088_gyro_ready())
             {
                 time = bmi088_gyro_read(data);
+            }
+            if(bmi088_acce_ready())
+            {
+                
                 time = bmi088_acce_read(&(data[3]));
-                int j = snprintf(buffer, 64, "%f,%f,%f,%f,%f,%f\n", data[0], data[1], data[2], data[3], data[4], data[5]);
+                valid_data++;
+                auto rpms = mDshot.get_motor_rpms();
+                int j = snprintf(buffer, 128, "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.2f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
+                (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
+                // int j = snprintf(buffer, 128, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
+                // (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
                 ssize_t send_count = write(fd, buffer, j);
+                if(cnt <= 4000)
+                {
+                    mDshot.set_motor_throttle(0, 0, 0, 0);
+                } 
+                else if(cnt > 4000 && cnt <= 8000)
+                {
+                    mDshot.set_motor_throttle(0.2, 0.2, 0.2, 0.2);
+                }
+                else if(cnt > 8000 && cnt <= 12000)
+                {
+                    mDshot.set_motor_throttle(0.3, 0.3, 0.3, 0.3);
+                }
+                printf("cnt %d time %lld send %d\n",valid_data, time, j);
                 
             }
+
         }
+        mDshot.set_motor_throttle(0,0,0,0);
         close(fd);
         bmi088_deinitialize();
         return 0;

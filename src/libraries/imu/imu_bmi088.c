@@ -64,7 +64,7 @@ int bmi088_powerup()
 
     if (rslt == BMI08_OK)
     {
-        bmi08dev.accel_cfg.odr = BMI08_ACCEL_ODR_400_HZ;
+        bmi08dev.accel_cfg.odr = BMI08_ACCEL_ODR_800_HZ;
 
         if (bmi08dev.variant == BMI085_VARIANT)
         {
@@ -76,15 +76,15 @@ int bmi088_powerup()
         }
 
         bmi08dev.accel_cfg.power = BMI08_ACCEL_PM_ACTIVE; /*user_accel_power_modes[user_bmi088_accel_low_power]; */
-        bmi08dev.accel_cfg.bw = BMI08_ACCEL_BW_NORMAL;    /* Bandwidth and OSR are same */
+        bmi08dev.accel_cfg.bw = BMI08_ACCEL_BW_OSR2;    /* Bandwidth and OSR are same */
 
         rslt = bmi08a_set_power_mode(&bmi08dev);
 
         rslt = bmi08xa_set_meas_conf(&bmi08dev);
 
-        bmi08dev.gyro_cfg.odr = BMI08_GYRO_BW_47_ODR_400_HZ;
+        bmi08dev.gyro_cfg.odr = BMI08_GYRO_BW_116_ODR_1000_HZ;
         bmi08dev.gyro_cfg.range = BMI08_GYRO_RANGE_2000_DPS;
-        bmi08dev.gyro_cfg.bw = BMI08_GYRO_BW_47_ODR_400_HZ;
+        bmi08dev.gyro_cfg.bw = BMI08_GYRO_BW_116_ODR_1000_HZ;
         bmi08dev.gyro_cfg.power = BMI08_GYRO_PM_NORMAL;
 
         rslt = bmi08g_set_power_mode(&bmi08dev);
@@ -100,7 +100,6 @@ static inline int acce_ready_irq(int id, xcpt_t irqhandler, void *arg)
     int ret = -EINVAL;
     acce_ready = 1;
     ret = stm32_gpiosetevent(GPIO_ACCE0_INT, false, true, true, (xcpt_t)acce_ready_irq, arg);
-    sem_post(&imu_rdy);
     return ret;
 }
 
@@ -110,6 +109,7 @@ static inline int gyro_ready_irq(int id, xcpt_t irqhandler, void *arg)
     int ret = -EINVAL;
     gyro_ready = 1;
     ret = stm32_gpiosetevent(GPIO_GYRO0_INT, false, true, true, (xcpt_t)gyro_ready_irq, arg);
+    sem_post(&imu_rdy);
     return ret;
 }
 

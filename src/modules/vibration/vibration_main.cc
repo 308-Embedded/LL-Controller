@@ -59,6 +59,15 @@ extern "C"
 {
     int vibration_main(int argc, FAR char *argv[])
     {
+        float throttle = 0;
+        for (int i = 1; i < argc; ++i)
+        {
+            if (strcmp(argv[i], "-t") == 0 && i + 1 < argc)
+            {
+                throttle = static_cast<float>(atof(argv[i + 1]));
+                i++;
+            }
+        }
         struct timespec ts_0, ts_1;
         DShot::DShot mDshot{};
         mDshot.register_motor_channel_map(1, 2, 3, 4);
@@ -71,7 +80,7 @@ extern "C"
         int cnt =0;
         char buffer[128];
         int valid_data = 0;
-        while(cnt < 30 * 400)
+        while(cnt < 40 * 400)
         {
             cnt++;
             bmi088_wait();
@@ -100,9 +109,13 @@ extern "C"
                 }
                 else if(cnt > 8000 && cnt <= 12000)
                 {
-                    mDshot.set_motor_throttle(0.3, 0.3, 0.3, 0.3);
+                    mDshot.set_motor_throttle(throttle, throttle, throttle, throttle);
                 }
-                printf("cnt %d time %lld send %d\n",valid_data, time, j);
+                else 
+                {
+                    mDshot.set_motor_throttle(0, 0, 0, 0);
+                }
+                printf("cnt %d time %lld rpm %d %d %d %d\n",valid_data, time, rpms[0], rpms[1], rpms[2], rpms[3]);
                 
             }
 

@@ -4,5 +4,5 @@ add_module(
   SRCS
     serial_main.cc
   STACK_MAIN 16384
-  DEPENDS nuttx_arch nuttx_m
+  DEPENDS nuttx_arch nuttx_m library__shared_table
 )

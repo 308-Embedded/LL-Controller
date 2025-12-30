@@ -4,6 +4,7 @@
 #include <arch/barriers.h>
 #include <stm32_dtcm.h>
 #include <ll_types/motor.h>
+#include <ll_types/acro.h>
 #include "SharedTable.h"
 
 
@@ -11,13 +12,16 @@
 /* ----------Edit to Add new type---------- */
 /* ---------------------------------------- */
 typedef enum {
-    t_QuadrotorCmd = 0
+    t_QuadrotorCmd = 0,
+    t_AcroCmd = 1
 } TagType;
 
 const char* tag_to_string(int tag) {
     switch (tag) {
         case t_QuadrotorCmd:
             return "QuadrotorCmd";
+        case t_AcroCmd:
+            return "AcroCmd";
         default:
             return "Unknown Tag";
     }
@@ -25,7 +29,8 @@ const char* tag_to_string(int tag) {
 
 
 const struct Registry gRegistedMembers[] = {
-    {"motor_cmd", t_QuadrotorCmd, sizeof(struct QuadrotorCmd)}
+    {"motor_cmd", t_QuadrotorCmd, sizeof(struct QuadrotorCmd)},
+    {"acro_cmd", t_AcroCmd, sizeof(struct AcroCmd)}
 };
 
 /* ---------------------------------------- */
@@ -56,6 +61,7 @@ int st_initialize()
         strcpy(gSharedTable[i].name, gRegistedMembers[i].name);
         gSharedTable[i].tag = gRegistedMembers[i].tag;
         gSharedTable[i].address = dtcm_memalign(32, gRegistedMembers[i].size); // 32byte alignment
+        memset(gSharedTable[i].address, 0, gRegistedMembers[i].size);
     }
     initialized = 1;
     return 0;

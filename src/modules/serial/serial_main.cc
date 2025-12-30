@@ -13,6 +13,8 @@
 #include <nuttx/fs/fs.h>
 #include <nuttx/arch.h>
 #include "static_queue.hpp"
+#include <SharedTable.h>
+#include <ll_types/acro.h>
 
 struct remoteCmd
 {
@@ -22,6 +24,33 @@ struct remoteCmd
     float q_y;
     float q_z;
 };
+
+#pragma pack(push, 1)
+struct serial_packet {
+    uint16_t magic;      // Target: 0xE0FD (Memory: FD E0)
+    uint16_t status;
+    uint32_t sec;
+    uint32_t nsec;
+    uint32_t id;
+    float throttle;
+    float yaw_speed;
+    float pitch_speed;
+    float roll_speed;
+    uint8_t  crc;
+};
+#pragma pack(pop)
+
+uint8_t calculate_crc8(const uint8_t *data, size_t len) {
+    uint8_t crc = 0x00;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++) {
+            if (crc & 0x80) crc = (crc << 1) ^ 0x07;
+            else crc <<= 1;
+        }
+    }
+    return crc;
+}
 
 static int setup_serial()
 {
@@ -145,46 +174,68 @@ int serial_task(int argc, char *argv[])
 
 int receive_task(int argc, char **argv)
 {
-    mqd_t g_recv_mqfd;
-    struct mq_attr attr;
-    attr.mq_maxmsg = 20;
-    attr.mq_msgsize = sizeof(remoteCmd);
-    attr.mq_flags = 0;
-    g_recv_mqfd = mq_open("mqueue", O_RDONLY | O_CREAT, 0666, &attr);
+    st_initialize();
+    int fd = setup_serial();
+    int acro_fd = st_find("acro_cmd");
+    struct serial_packet pkt;
+    uint8_t *window = (uint8_t*)&pkt;
+    const size_t PKT_SIZE = sizeof(struct serial_packet);
 
-    remoteCmd recCmd;
-    int cnt = 0;
-    while (cnt < 500)
-    {
-        ssize_t nbytes = mq_receive(g_recv_mqfd, reinterpret_cast<char *>(&recCmd), sizeof(remoteCmd), 0);
-        printf("got %d bytes\n", nbytes);
-        if (nbytes > 0)
-        {
-            printf("get %d msgs throttle %f \n", cnt, recCmd.throttle);
+    struct AcroCmd acro_pkg;
+
+    printf("Receiver Active. Synchronizing on 0xE0FD...\n");
+
+    while (1) {
+        // 1. Shift existing data left by 1 byte
+        memmove(window, window + 1, PKT_SIZE - 1);
+
+        // 2. Read 1 new byte into the very last position
+        if (read(fd, &window[PKT_SIZE - 1], 1) <= 0) continue;
+
+        // 3. Check for the Magic Header [FD E0] at the start of our window
+        if (window[0] == 0xFD && window[1] == 0xE0) {
+            
+            // 4. Validate the CRC (calculated on all bytes except the last one)
+            uint8_t computed_crc = calculate_crc8(window, PKT_SIZE - 1);
+            
+            if (computed_crc == pkt.crc) {
+                // SUCCESS: Frame synchronized and data validated
+                // printf("\r\033[K[OK] ID:%-6u | ST:%d | THR:%4.2f | Y:%5.2f P:%5.2f R:%5.2f", 
+                //        pkt.id, pkt.status, pkt.throttle, 
+                //        pkt.yaw_speed, pkt.pitch_speed, pkt.roll_speed);
+                // fflush(stdout);
+
+                //update shared table here
+                acro_pkg.id = pkt.id;
+                acro_pkg.status = pkt.status;
+                acro_pkg.throttle = pkt.throttle;
+                acro_pkg.yaw_vel = pkt.yaw_speed;
+                acro_pkg.pitch_vel  = pkt.pitch_speed;
+                acro_pkg.roll_vel = pkt.roll_speed;
+                st_write(acro_fd, &acro_pkg);
+                usleep(5000);
+            }
         }
-        cnt++;
-        usleep(10000); // 10 ms
     }
-
-    mq_close(g_recv_mqfd);
-    return 1;
+    return 0;
 }
 
 extern "C"
 {
     int serial_main(int argc, char **argv)
     {
-        // task_create("remote_task", 50, 16384, serial_task, NULL);
-        // task_create("receive_task", 42, 4096, receive_task, NULL);
-        // serial_task();
-        int fd = setup_serial();
         
-        static const char s[] = "abcdefghijklmnopqrstuvwxyz";
-        const int slength = sizeof(s)-1;
-        int printed = write(fd, s, slength);
-        printf("serial sent %d bytes \n", printed);
-        up_udelay(5000000);
-        close(fd);
-        return 1;
+        // task_create("remote_task", 50, 16384, serial_task, NULL);
+        task_create("receive_task", 120, 4096, receive_task, NULL);
+        // serial_task();
+        // int fd = setup_serial();
+        
+        // static const char s[] = "abcdefghijklmnopqrstuvwxyz";
+        // const int slength = sizeof(s)-1;
+        // int printed = write(fd, s, slength);
+        // printf("serial sent %d bytes \n", printed);
+        // up_udelay(5000000);
+        // close(fd);
+        return 0;
     }
 }

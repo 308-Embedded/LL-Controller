@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <dshot.h>
 #include <time.h>
+#include <DyNotch.hpp>
 
 static int setup_serial()
 {
@@ -77,9 +78,28 @@ extern "C"
         int fd = setup_serial();
         uint64_t time;
         float data[6];
+        float filtered_data[6];
         int cnt =0;
+        int filter_cnt = 0;
         char buffer[128];
         int valid_data = 0;
+
+        float noise_freq0 = 0;
+        float noise_freq1 = 0;
+        float noise_freq2 = 0;
+        float noise_freq3 = 0;
+
+        float tmp0 = 0;
+        float tmp1 = 0;
+        float tmp2 = 0;
+        float tmp3 = 0;
+
+        uint32_t* rpms;
+        DynamicNotchVecFilter<float, 3, 1000> filter_0{};
+        DynamicNotchVecFilter<float, 3, 1000> filter_1{};
+        DynamicNotchVecFilter<float, 3, 1000> filter_2{};
+        DynamicNotchVecFilter<float, 3, 1000> filter_3{};
+
         while(cnt < 40 * 400)
         {
             cnt++;
@@ -87,18 +107,65 @@ extern "C"
             if(bmi088_gyro_ready())
             {
                 time = bmi088_gyro_read(data);
+
+
+
+                if(noise_freq0 > 100 && noise_freq0 < 500)
+                {
+                    filter_0.filter(data, filtered_data);
+                }
+
+                if(noise_freq1 > 100 && noise_freq1 < 500)
+                {
+                    filter_1.filter(data, filtered_data);
+                }
+
+                if(noise_freq2 > 100 && noise_freq2 < 500)
+                {
+                    filter_2.filter(data, filtered_data);
+
+                }
+                if(noise_freq3 > 100 && noise_freq3 < 500)
+                {
+                    filter_3.filter(data, filtered_data);
+                }
+
+                if(rpms != NULL)
+                {
+                    int j = snprintf(buffer, 128, "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.2f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
+                    (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
+                    // int j = snprintf(buffer, 128, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
+                    // (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
+                    ssize_t send_count = write(fd, buffer, j);
+                }
             }
             if(bmi088_acce_ready())
             {
                 
                 time = bmi088_acce_read(&(data[3]));
                 valid_data++;
-                auto rpms = mDshot.get_motor_rpms();
-                int j = snprintf(buffer, 128, "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.2f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
-                (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
-                // int j = snprintf(buffer, 128, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
-                // (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
-                ssize_t send_count = write(fd, buffer, j);
+                rpms = mDshot.get_motor_rpms();
+                filter_cnt ++;
+                tmp0 += (rpms[0]/60);
+                tmp1 += (rpms[1]/60);
+                tmp2 += (rpms[2]/60);
+                tmp3 += (rpms[3]/60);
+                if(filter_cnt % 16 ==15)
+                {
+                    noise_freq0 = tmp0 / 16;
+                    noise_freq1 = tmp1 / 16;
+                    noise_freq2 = tmp2 / 16;
+                    noise_freq3 = tmp3 / 16;
+                    filter_0.set_params(noise_freq0);
+                    filter_1.set_params(noise_freq1);
+                    filter_2.set_params(noise_freq2);
+                    filter_3.set_params(noise_freq3);
+                    tmp0 = 0;
+                    tmp1 = 0; 
+                    tmp2 = 0;
+                    tmp3 = 0;
+                }
+                
                 if(cnt <= 4000)
                 {
                     mDshot.set_motor_throttle(0, 0, 0, 0);

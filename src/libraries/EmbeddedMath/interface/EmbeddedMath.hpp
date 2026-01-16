@@ -581,7 +581,7 @@ namespace EmbeddedTypes
             if constexpr (RowsAtCompileTime == 2 && ColsAtCompileTime == 2)
             {
                 ScalarType det = this->determinant();
-                if (abs(det) < FLOAT_EPSILON)
+                if (fabs(det) < FLOAT_EPSILON)
                     return EmbeddedCoreType::Zero();
                 ScalarType invDet = (ScalarType)1.0 / det;
                 result(0, 0) = this->Elements[3] * invDet;
@@ -592,7 +592,7 @@ namespace EmbeddedTypes
             else if constexpr (RowsAtCompileTime == 3 && ColsAtCompileTime == 3)
             {
                 ScalarType det = this->determinant();
-                if (abs(det) < FLOAT_EPSILON)
+                if (fabs(det) < FLOAT_EPSILON)
                     return EmbeddedCoreType::Zero();
                 ScalarType invDet = (ScalarType)1.0 / det;
                 result(0, 0) = (this->Elements[4] * this->Elements[8] - this->Elements[5] * this->Elements[7]) * invDet;

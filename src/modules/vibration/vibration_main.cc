@@ -8,6 +8,8 @@
 #include <time.h>
 #include <DyNotch.hpp>
 
+#include <AttiFilter.hpp>
+
 static int setup_serial()
 {
     int fd;
@@ -61,6 +63,7 @@ extern "C"
     int vibration_main(int argc, FAR char *argv[])
     {
         float throttle = 0;
+        int duration = 10;
         for (int i = 1; i < argc; ++i)
         {
             if (strcmp(argv[i], "-t") == 0 && i + 1 < argc)
@@ -68,8 +71,21 @@ extern "C"
                 throttle = static_cast<float>(atof(argv[i + 1]));
                 i++;
             }
+
+            if (strcmp(argv[i], "-d") == 0 && i + 1 < argc)
+            {
+                duration = atoi(argv[i + 1]);
+                i++;
+            }
         }
         struct timespec ts_0, ts_1;
+        using namespace Filter;
+        using namespace EmbeddedMath;
+        Vector3f gyro_noise(1e-4, 1e-4, 1e-4);
+        Vector3f meas_noise(1, 1, 1);
+
+        AttiFilter<float> att_filter{};
+ 
         DShot::DShot mDshot{};
         mDshot.register_motor_channel_map(1, 2, 3, 4);
         mDshot.set_motor_throttle(0,0,0,0);
@@ -99,41 +115,29 @@ extern "C"
         DynamicNotchVecFilter<float, 3, 1000> filter_1{};
         DynamicNotchVecFilter<float, 3, 1000> filter_2{};
         DynamicNotchVecFilter<float, 3, 1000> filter_3{};
-
-        while(cnt < 40 * 400)
+        int total_count = (duration) * 1000 + 1000;
+        while(cnt < total_count)
         {
             cnt++;
             bmi088_wait();
             if(bmi088_gyro_ready())
             {
                 time = bmi088_gyro_read(data);
+                static Vector3f u;
 
+                u(0) = -data[1];
+                u(1) = data[0];
+                u(2) = data[2];
 
+                // auto quat = att_filter.predict(u);
 
-                if(noise_freq0 > 100 && noise_freq0 < 500)
-                {
-                    filter_0.filter(data, filtered_data);
-                }
-
-                if(noise_freq1 > 100 && noise_freq1 < 500)
-                {
-                    filter_1.filter(data, filtered_data);
-                }
-
-                if(noise_freq2 > 100 && noise_freq2 < 500)
-                {
-                    filter_2.filter(data, filtered_data);
-
-                }
-                if(noise_freq3 > 100 && noise_freq3 < 500)
-                {
-                    filter_3.filter(data, filtered_data);
-                }
-
-                if(rpms != NULL)
+                if(rpms != NULL && cnt %4 ==1)
                 {
                     int j = snprintf(buffer, 128, "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.2f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
                     (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
+
+                    // int j = snprintf(buffer, 128, "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
+                    // (float)quat.w(), (float)quat.x(), (float)quat.y(), (float)quat.z());
                     // int j = snprintf(buffer, 128, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", data[0], data[1], data[2], data[3], data[4], data[5],\
                     // (float)rpms[0]*0.01, (float)rpms[1]*0.01, (float)rpms[2]*0.01, (float)rpms[3]*0.01);
                     ssize_t send_count = write(fd, buffer, j);
@@ -143,38 +147,41 @@ extern "C"
             {
                 
                 time = bmi088_acce_read(&(data[3]));
+                // Vector3f z(-data[4], data[3], data[5]);
+                // z = z / 9.81;
+                // if(abs(z.norm() - 1)< 0.2 )
+                // {
+                //     att_filter.update(z);
+                // }
+
                 valid_data++;
                 rpms = mDshot.get_motor_rpms();
                 filter_cnt ++;
-                tmp0 += (rpms[0]/60);
-                tmp1 += (rpms[1]/60);
-                tmp2 += (rpms[2]/60);
-                tmp3 += (rpms[3]/60);
-                if(filter_cnt % 16 ==15)
-                {
-                    noise_freq0 = tmp0 / 16;
-                    noise_freq1 = tmp1 / 16;
-                    noise_freq2 = tmp2 / 16;
-                    noise_freq3 = tmp3 / 16;
-                    filter_0.set_params(noise_freq0);
-                    filter_1.set_params(noise_freq1);
-                    filter_2.set_params(noise_freq2);
-                    filter_3.set_params(noise_freq3);
-                    tmp0 = 0;
-                    tmp1 = 0; 
-                    tmp2 = 0;
-                    tmp3 = 0;
-                }
+                // tmp0 += (rpms[0]/60);
+                // tmp1 += (rpms[1]/60);
+                // tmp2 += (rpms[2]/60);
+                // tmp3 += (rpms[3]/60);
+                // if(filter_cnt % 16 ==15)
+                // {
+                //     noise_freq0 = tmp0 / 16;
+                //     noise_freq1 = tmp1 / 16;
+                //     noise_freq2 = tmp2 / 16;
+                //     noise_freq3 = tmp3 / 16;
+                //     filter_0.set_params(noise_freq0);
+                //     filter_1.set_params(noise_freq1);
+                //     filter_2.set_params(noise_freq2);
+                //     filter_3.set_params(noise_freq3);
+                //     tmp0 = 0;
+                //     tmp1 = 0; 
+                //     tmp2 = 0;
+                //     tmp3 = 0;
+                // }
                 
-                if(cnt <= 4000)
+                if(cnt <= 5000)
                 {
                     mDshot.set_motor_throttle(0, 0, 0, 0);
                 } 
-                else if(cnt > 4000 && cnt <= 8000)
-                {
-                    mDshot.set_motor_throttle(0.2, 0.2, 0.2, 0.2);
-                }
-                else if(cnt > 8000 && cnt <= 12000)
+                else if(cnt > 5000 && cnt <= duration * 1000)
                 {
                     mDshot.set_motor_throttle(throttle, throttle, throttle, throttle);
                 }

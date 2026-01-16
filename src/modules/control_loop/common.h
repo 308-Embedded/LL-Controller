@@ -5,6 +5,7 @@ using namespace EmbeddedMath;
 struct imuData
 {
     Vector3f angular_vel = Vector3f::Zero(); // gyro 
+    Vector3f angular_acce = Vector3f::Zero(); // gyro 
     Vector3f linear_acce = Vector3f::Zero(); // acce
     Vector3f gyro_bias = Vector3f::Zero(); // gyro bias
     Vector3f acce_bias = Vector3f::Zero(); // acce bias
@@ -13,5 +14,6 @@ struct imuData
 
 extern struct imuData g_imu;
 extern sem_t ctrl_rdy;
+extern uint8_t reset;
 
 int imu_task(int argc, char *argv[]);

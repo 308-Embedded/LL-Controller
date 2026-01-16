@@ -87,8 +87,9 @@ list(APPEND config_module_list src/modules/serial)
 # list(APPEND config_module_list src/modules/pwm)
 list(APPEND config_module_list src/modules/dshot)
 list(APPEND config_module_list src/modules/control_loop)
-list(APPEND config_module_list src/modules/hello_nuttx)
+# list(APPEND config_module_list src/modules/hello_nuttx)
 list(APPEND config_module_list src/modules/vibration)
+list(APPEND config_module_list src/modules/shared_table)
 
 # Add all modules
 foreach(module ${config_module_list}) 

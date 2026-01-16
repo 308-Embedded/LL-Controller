@@ -4,5 +4,5 @@ add_module(
   SRCS
   vibration_main.cc
   STACK_MAIN 16384
-  DEPENDS nuttx_arch nuttx_m nuttx_c library__imu library__dshot library__filters
+  DEPENDS nuttx_arch nuttx_m nuttx_c library__imu library__dshot library__filters library__embedded_math
 )

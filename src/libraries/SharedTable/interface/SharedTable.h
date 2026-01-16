@@ -16,6 +16,10 @@ int st_write(const int entry, const void* data);
 
 int st_read(const int entry, void* data);
 
+int st_write_block(const int entry, const void* data, int size);
+
+int st_read_block(const int entry, void* data, int size);
+
 int st_list();
 
 int st_status();

@@ -4,5 +4,3 @@ mkrd -m 0 -s 512 512
 mkfatfs /dev/ram0
 mount -t vfat /dev/ram0 /tmp
 
-serial
-control_loop

@@ -4,4 +4,5 @@ ll_add_library(
   empty.cc
   INTERFACES
   interface
+  DEPENDS library__embedded_math
 )

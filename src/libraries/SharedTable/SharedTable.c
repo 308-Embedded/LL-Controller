@@ -5,6 +5,7 @@
 #include <stm32_dtcm.h>
 #include <ll_types/motor.h>
 #include <ll_types/acro.h>
+#include <ll_types/log_buffer.h>
 #include "SharedTable.h"
 
 
@@ -13,7 +14,8 @@
 /* ---------------------------------------- */
 typedef enum {
     t_QuadrotorCmd = 0,
-    t_AcroCmd = 1
+    t_AcroCmd = 1,
+    t_LogBuffer
 } TagType;
 
 const char* tag_to_string(int tag) {
@@ -22,6 +24,8 @@ const char* tag_to_string(int tag) {
             return "QuadrotorCmd";
         case t_AcroCmd:
             return "AcroCmd";
+        case t_LogBuffer:
+            return "LogBuffer";
         default:
             return "Unknown Tag";
     }
@@ -30,7 +34,8 @@ const char* tag_to_string(int tag) {
 
 const struct Registry gRegistedMembers[] = {
     {"motor_cmd", t_QuadrotorCmd, sizeof(struct QuadrotorCmd)},
-    {"acro_cmd", t_AcroCmd, sizeof(struct AcroCmd)}
+    {"acro_cmd", t_AcroCmd, sizeof(struct AcroCmd)},
+    {"log_message", t_LogBuffer, sizeof(struct LogBuffer)}
 };
 
 /* ---------------------------------------- */
@@ -62,6 +67,11 @@ int st_initialize()
         gSharedTable[i].tag = gRegistedMembers[i].tag;
         gSharedTable[i].address = dtcm_memalign(32, gRegistedMembers[i].size); // 32byte alignment
         memset(gSharedTable[i].address, 0, gRegistedMembers[i].size);
+        if(gRegistedMembers[i].tag == t_LogBuffer)
+        {
+            struct LogBuffer* lb = (struct LogBuffer*)gSharedTable[i].address;
+            ringbuf_init(&lb->rb, lb->buffer, LOG_BUFFER_SIZE);
+        }
     }
     initialized = 1;
     return 0;
@@ -88,9 +98,26 @@ int st_find(const char* var_name)
 
 int st_write(const int entry, const void* data)
 {
-    memcpy(gSharedTable[entry].address, data, gRegistedMembers[entry].size);
-    UP_DMB();
+    if(gRegistedMembers[entry].tag == t_LogBuffer)
+    {
+        struct LogBuffer* lb = (struct LogBuffer*)gSharedTable[entry].address;
+        ringbuf_push(&lb->rb, data, 1);
+    }
+    else
+    {
+        memcpy(gSharedTable[entry].address, data, gRegistedMembers[entry].size);
+    }
     return 0;
+}
+
+int st_write_block(const int entry, const void* data, int size)
+{
+    if(gRegistedMembers[entry].tag == t_LogBuffer)
+    {
+        struct LogBuffer* lb = (struct LogBuffer*)gSharedTable[entry].address;
+        return ringbuf_push(&lb->rb, data, size);
+    }
+    return -1;
 }
 
 int st_status()
@@ -103,7 +130,24 @@ int st_status()
 
 int st_read(const int entry, void* data)
 {
-    UP_DMB();
-    memcpy(data, gSharedTable[entry].address, gRegistedMembers[entry].size);
+    if(gRegistedMembers[entry].tag == t_LogBuffer)
+    {
+        struct LogBuffer* lb = (struct LogBuffer*)gSharedTable[entry].address;
+        return ringbuf_pop(&lb->rb, data, 1);
+    }
+    else
+    {
+        memcpy(data, gSharedTable[entry].address, gRegistedMembers[entry].size);
+    }
     return 0;
+}
+
+int st_read_block(const int entry, void* data, int size)
+{
+    if(gRegistedMembers[entry].tag == t_LogBuffer)
+    {
+        struct LogBuffer* lb = (struct LogBuffer*)gSharedTable[entry].address;
+        return ringbuf_pop(&lb->rb, data, size);
+    }
+    return -1;
 }

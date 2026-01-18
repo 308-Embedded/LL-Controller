@@ -40,10 +40,33 @@ float throttle2force(const float in)
     return a*in*in + b*in + c;
 }
 
+uint8_t crc8(const uint8_t *data, size_t len) {
+    uint8_t crc = 0x00;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++) {
+            if (crc & 0x80) crc = (crc << 1) ^ 0x07;
+            else crc <<= 1;
+        }
+    }
+    return crc;
+}
+
+#pragma pack(push, 1)
+struct log_msg{
+    uint16_t header;
+    int cnt;
+    float omega[3];
+    float motor_cmd[4];
+    uint32_t motor_fb[4];
+    uint8_t crc;
+};
+#pragma pack(pop)
 
 int control_task(int argc, char *argv[])
 {
     int acro_fd = st_find("acro_cmd");
+    int log_fd = st_find("log_message");
     struct AcroCmd rc_cmd;
     int last_rc_id;
     int valid_rc_count = 0;
@@ -87,6 +110,8 @@ int control_task(int argc, char *argv[])
     const Vector3f y_axis = Vector3f(0, 1, 0);
     const Vector3f z_axis = Vector3f(0, 0, 1);
 
+    struct log_msg mlog;
+    mlog.header = 0xABEF;
     reset = 1;
     while(1)
     {   
@@ -95,8 +120,6 @@ int control_task(int argc, char *argv[])
 
         // Update last_rc_id
         last_rc_id = rc_cmd.id;
-    
-
 
         cnt++;
         // Vector3f omega_des = Vector3f(rc_cmd.roll_vel, rc_cmd.pitch_vel, rc_cmd.yaw_vel);
@@ -127,13 +150,13 @@ int control_task(int argc, char *argv[])
                                         force2throttle(force_des(1)),
                                         force2throttle(force_des(2)),
                                         force2throttle(force_des(3)));
-        printf("e_omega    | %f %f %f \n", e_omega.x(), e_omega.y(), e_omega.z());
-        printf("raw        | %f %f %f \n", g_imu.angular_vel.x(), g_imu.angular_vel.y(), g_imu.angular_vel.z());
-        printf("d_omega    | %f %f %f \n", g_imu.angular_acce.x(), g_imu.angular_acce.y(), g_imu.angular_acce.z());
-        printf("full_des   | %f %f %f %f\n", full_des(0), full_des(1), full_des(2), full_des(3));
-        printf("force_des  | %f %f %f %f\n", force_des(0), force_des(1), force_des(2), force_des(3));
-        
-        if(rc_cmd.status==0)
+        // printf("e_omega    | %f %f %f \n", e_omega.x(), e_omega.y(), e_omega.z());
+        // printf("raw        | %f %f %f \n", g_imu.angular_vel.x(), g_imu.angular_vel.y(), g_imu.angular_vel.z());
+        // printf("d_omega    | %f %f %f \n", g_imu.angular_acce.x(), g_imu.angular_acce.y(), g_imu.angular_acce.z());
+        // printf("full_des   | %f %f %f %f\n", full_des(0), full_des(1), full_des(2), full_des(3));
+        // printf("force_des  | %f %f %f %f\n", force_des(0), force_des(1), force_des(2), force_des(3));
+
+        if((rc_cmd.status & 1) == 0)
         {
             motor_cmd = Vector4f::Zero();
         }
@@ -144,7 +167,27 @@ int control_task(int argc, char *argv[])
         
         mDshot.set_motor_throttle(motor_cmd(0), motor_cmd(1), motor_cmd(2)*1.15, motor_cmd(3));
 
-        if(cnt %10 ==0)
+                
+        if((rc_cmd.status & 2) != 0 && cnt % 4 ==0)
+        {
+            auto rpms = mDshot.get_motor_rpms();
+            mlog.cnt = cnt;
+            mlog.omega[0] = g_imu.angular_vel(0);
+            mlog.omega[1] = g_imu.angular_vel(1);
+            mlog.omega[2] = g_imu.angular_vel(2);
+            mlog.motor_cmd[0] = motor_cmd(0);
+            mlog.motor_cmd[1] = motor_cmd(1);
+            mlog.motor_cmd[2] = motor_cmd(2);
+            mlog.motor_cmd[3] = motor_cmd(3);
+            mlog.motor_fb[0] = rpms[0];
+            mlog.motor_fb[1] = rpms[1];
+            mlog.motor_fb[2] = rpms[2];
+            mlog.motor_fb[3] = rpms[3];
+            mlog.crc = crc8((uint8_t *)(&mlog), 50);
+            st_write_block(log_fd, &mlog, sizeof(log_msg));
+        }
+
+        if(cnt %4 ==0)
         {
             
             // printf("\r\033[K[OK] ID:%-6u | ST:%d | THR:%4.2f | Y:%5.2f P:%5.2f R:%5.2f | force %3.4f %3.4f %3.4f %3.4f", 

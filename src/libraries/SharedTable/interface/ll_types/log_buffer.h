@@ -2,7 +2,7 @@
 
 #include <ringbuf.h>
 
-#define LOG_BUFFER_SIZE 256
+#define LOG_BUFFER_SIZE 2048
 
 struct LogBuffer {
     ringbuf_t rb;

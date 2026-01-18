@@ -177,10 +177,11 @@ int receive_task(int argc, char **argv)
     st_initialize();
     int fd = setup_serial();
     int acro_fd = st_find("acro_cmd");
+    int log_fd = st_find("log_message");
     struct serial_packet pkt;
     uint8_t *window = (uint8_t*)&pkt;
     const size_t PKT_SIZE = sizeof(struct serial_packet);
-
+    uint8_t log_buffer[1024];
     struct AcroCmd acro_pkg;
 
     printf("Receiver Active. Synchronizing on 0xE0FD...\n");
@@ -190,32 +191,40 @@ int receive_task(int argc, char **argv)
         memmove(window, window + 1, PKT_SIZE - 1);
 
         // 2. Read 1 new byte into the very last position
-        if (read(fd, &window[PKT_SIZE - 1], 1) <= 0) continue;
+        if (read(fd, &window[PKT_SIZE - 1], 1) > 0)
+        {
+             if (window[0] == 0xFD && window[1] == 0xE0) {
+                
+                // 4. Validate the CRC (calculated on all bytes except the last one)
+                uint8_t computed_crc = calculate_crc8(window, PKT_SIZE - 1);
+                
+                if (computed_crc == pkt.crc) {
+                    // SUCCESS: Frame synchronized and data validated
+                    // printf("\r\033[K[OK] ID:%-6u | ST:%d | THR:%4.2f | Y:%5.2f P:%5.2f R:%5.2f",
+                    //        pkt.id, pkt.status, pkt.throttle,
+                    //        pkt.yaw_speed, pkt.pitch_speed, pkt.roll_speed);
+                    // fflush(stdout);
 
-        // 3. Check for the Magic Header [FD E0] at the start of our window
-        if (window[0] == 0xFD && window[1] == 0xE0) {
-            
-            // 4. Validate the CRC (calculated on all bytes except the last one)
-            uint8_t computed_crc = calculate_crc8(window, PKT_SIZE - 1);
-            
-            if (computed_crc == pkt.crc) {
-                // SUCCESS: Frame synchronized and data validated
-                // printf("\r\033[K[OK] ID:%-6u | ST:%d | THR:%4.2f | Y:%5.2f P:%5.2f R:%5.2f", 
-                //        pkt.id, pkt.status, pkt.throttle, 
-                //        pkt.yaw_speed, pkt.pitch_speed, pkt.roll_speed);
-                // fflush(stdout);
-
-                //update shared table here
-                acro_pkg.id = pkt.id;
-                acro_pkg.status = pkt.status;
-                acro_pkg.throttle = pkt.throttle;
-                acro_pkg.yaw_vel = pkt.yaw_speed;
-                acro_pkg.pitch_vel  = pkt.pitch_speed;
-                acro_pkg.roll_vel = pkt.roll_speed;
-                st_write(acro_fd, &acro_pkg);
-                usleep(5000);
+                    //update shared table here
+                    acro_pkg.id = pkt.id;
+                    acro_pkg.status = pkt.status;
+                    acro_pkg.throttle = pkt.throttle;
+                    acro_pkg.yaw_vel = pkt.yaw_speed;
+                    acro_pkg.pitch_vel  = pkt.pitch_speed;
+                    acro_pkg.roll_vel = pkt.roll_speed;
+                    st_write(acro_fd, &acro_pkg);
+                }
             }
         }
+
+        
+        int bytes_read = st_read_block(log_fd, log_buffer, 64);
+        if (bytes_read > 0)
+        {
+            write(fd, log_buffer, bytes_read);
+        }
+
+       
     }
     return 0;
 }
@@ -226,7 +235,7 @@ extern "C"
     {
         
         // task_create("remote_task", 50, 16384, serial_task, NULL);
-        task_create("receive_task", 120, 4096, receive_task, NULL);
+        task_create("receive_task", 120, 16384, receive_task, NULL);
         // serial_task();
         // int fd = setup_serial();
         

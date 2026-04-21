@@ -46,7 +46,7 @@ static uint8_t initialized = 0;
 
 int st_initialize()
 {   
-    dtcm_initialize();
+    // dtcm_initialize();  // Remove DTCM initialization
     
     int table_size = sizeof(gRegistedMembers) / sizeof(gRegistedMembers[0]);
     if(table_size > MAX_TABLE_SIZE)
@@ -54,7 +54,7 @@ int st_initialize()
         return -1;
     }
 
-    gSharedTable = (SharedTable*)dtcm_malloc(MAX_TABLE_SIZE * sizeof(SharedTable));
+    gSharedTable = (SharedTable*)malloc(MAX_TABLE_SIZE * sizeof(SharedTable));
 
     if(gSharedTable == NULL)
     {
@@ -65,7 +65,7 @@ int st_initialize()
     {
         strcpy(gSharedTable[i].name, gRegistedMembers[i].name);
         gSharedTable[i].tag = gRegistedMembers[i].tag;
-        gSharedTable[i].address = dtcm_memalign(32, gRegistedMembers[i].size); // 32byte alignment
+        gSharedTable[i].address = malloc(gRegistedMembers[i].size); // Remove alignment requirement
         memset(gSharedTable[i].address, 0, gRegistedMembers[i].size);
         if(gRegistedMembers[i].tag == t_LogBuffer)
         {

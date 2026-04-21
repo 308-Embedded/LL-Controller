@@ -7,7 +7,7 @@ add_custom_command(
   OUTPUT ${NUTTX_SOURCE_DIR}/.config
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${NUTTX_BOARD_PATH}/${NUTTX_BOARD}/scripts/Make.defs ${NUTTX_SOURCE_DIR}/Make.defs
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${NUTTX_BOARD_PATH}/${NUTTX_BOARD}/configs/${NUTTX_BOARD_CONFIG}/defconfig ${NUTTX_SOURCE_DIR}/.config
-  COMMAND make olddefconfig
+  COMMAND make CC=arm-none-eabi-gcc CXX=arm-none-eabi-g++ olddefconfig
   COMMAND ${CMAKE_COMMAND} -E echo "Copying board config"
   DEPENDS
     ${NUTTX_BOARD_PATH}/${NUTTX_BOARD}/scripts/Make.defs
@@ -42,7 +42,7 @@ add_custom_target(saveconfig
 add_custom_command(
   OUTPUT ${NUTTX_SOURCE_DIR}/include/nuttx/config.h
   COMMAND make --no-print-directory --silent clean_context
-  COMMAND make --no-print-directory --silent pass1dep
+  COMMAND make CC=arm-none-eabi-gcc CXX=arm-none-eabi-g++ --no-print-directory --silent pass1dep
   COMMENT "Generate config.h."
   DEPENDS
     ${NUTTX_SOURCE_DIR}/.config
@@ -65,7 +65,7 @@ function(add_nuttx_dir nuttx_lib nuttx_lib_dir kernel extra target)
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/nuttx/${nuttx_lib_dir}/lib${nuttx_lib}.a
 		COMMAND ${CMAKE_COMMAND} -E remove -f ${NUTTX_SOURCE_DIR}/${nuttx_lib_dir}/lib${nuttx_lib}.a
 		COMMAND find ${nuttx_lib_dir} -type f \\\( -name "*.o" -o -name "*lib*.a" -o -name "*.depend" -o -name "*.dep" \\\) -delete
-		COMMAND make -C ${nuttx_lib_dir} --no-print-directory --silent ${nuttx_lib_target} TOPDIR="${NUTTX_SOURCE_DIR}" KERNEL=${kernel} EXTRAFLAGS=${extra} > ${CMAKE_CURRENT_BINARY_DIR}/nuttx_${nuttx_lib}.log
+		COMMAND make CC=arm-none-eabi-gcc CXX=arm-none-eabi-g++ -C ${nuttx_lib_dir} --no-print-directory --silent ${nuttx_lib_target} TOPDIR="${NUTTX_SOURCE_DIR}" KERNEL=${kernel} EXTRAFLAGS=${extra} > ${CMAKE_CURRENT_BINARY_DIR}/nuttx_${nuttx_lib}.log
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${NUTTX_SOURCE_DIR}/${nuttx_lib_dir}/lib${nuttx_lib}.a ${CMAKE_CURRENT_BINARY_DIR}/nuttx/${nuttx_lib_dir}/lib${nuttx_lib}.a
     DEPENDS
       ${nuttx_lib_files}

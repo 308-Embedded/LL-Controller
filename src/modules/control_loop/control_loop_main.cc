@@ -63,7 +63,7 @@ struct log_msg{
 };
 #pragma pack(pop)
 
-int control_task(int argc, char *argv[])
+int control _task(int argc, char *argv[])
 {
     int acro_fd = st_find("acro_cmd");
     int log_fd = st_find("log_message");
@@ -206,9 +206,7 @@ extern "C"
 {
     int control_loop_main(int argc, FAR char *argv[])
     {
-        
         task_create("imu_sample_task", 150, 40960, imu_task, NULL);
-        // imu_task(1, NULL);
         task_create("control_task", 200, 40960, control_task, NULL);
         return 0;
     }

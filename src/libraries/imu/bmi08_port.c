@@ -17,6 +17,10 @@
 #define BMI08_SHUTTLE_ID_1  UINT16_C(0x86)
 #define BMI08_SHUTTLE_ID_2  UINT16_C(0x66)
 
+#ifndef BOARD_BMI088_SPI_BUS
+#  define BOARD_BMI088_SPI_BUS 1
+#endif
+
 uint8_t acc_dev_add;
 uint8_t gyro_dev_add;
 
@@ -185,7 +189,7 @@ int8_t bmi08_interface_init(struct bmi08_dev *bmi08, uint8_t intf, uint8_t varia
     int8_t rslt = BMI08_OK;
     // struct coines_board_info board_info;
     memset(dummy_buffer, 0xFF, 1024);
-    spi = stm32_spibus_initialize(1);
+    spi = stm32_spibus_initialize(BOARD_BMI088_SPI_BUS);
 
     if (bmi08 != NULL)
     {
@@ -229,4 +233,3 @@ int8_t bmi08_interface_init(struct bmi08_dev *bmi08, uint8_t intf, uint8_t varia
 
     return rslt;
 }
-

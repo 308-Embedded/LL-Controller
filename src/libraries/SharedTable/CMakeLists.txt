@@ -4,7 +4,7 @@ ll_add_library(
   SharedTable.c
   SharedTableDefs.h
   DEPENDS
-  nuttx_arch nuttx_mm library__ringbuffer
+  nuttx_arch nuttx_mm nuttx_c library__ringbuffer
   INTERFACES
   interface
 )

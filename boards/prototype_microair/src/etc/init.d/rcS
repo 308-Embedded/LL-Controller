@@ -1,0 +1,7 @@
+echo "Hello nuttx start up script rcS"
+echo "Motor test: run 'motor_test -t 0.12' or 'dshot -t 0.12' with props removed"
+echo "Board test: run 'microair_test -t 0.12' to test BMI088 and motors together"
+
+mkrd -m 0 -s 512 512
+mkfatfs /dev/ram0
+mount -t vfat /dev/ram0 /tmp

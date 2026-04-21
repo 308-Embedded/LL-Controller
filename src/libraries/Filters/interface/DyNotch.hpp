@@ -32,9 +32,10 @@ private:
     void update_internal()
     {
         Scalar omega = 2 * M_PI * center_freq / SampleRate;
-        Scalar alpha = std::sin(omega) / (2 * Q);
-        Scalar cos_w = std::cos(omega);
-
+        // Scalar alpha = std::sin(omega) / (2 * Q);
+        // Scalar cos_w = std::cos(omega);
+        Scalar alpha = sin(omega) / (2 * Q);
+         Scalar cos_w = cos(omega);  
         a0 =  1 + alpha;
         nb0 = 1 / a0;
         nb1 = (-2 * cos_w) / a0;

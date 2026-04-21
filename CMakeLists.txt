@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.17)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(misc)
 include(toolchain)
-project(prototype)
+project(prototype)     #工程名叫prototype，生成的可执行文件也叫prototype
 enable_language(ASM)
-enable_language(C)
-enable_language(CXX)
+enable_language(C)    #启用C语言支持
+enable_language(CXX)  #启用C++语言支持
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -86,6 +86,8 @@ list(APPEND config_module_list ${board_src_rel}/src)
 list(APPEND config_module_list src/modules/serial)
 # list(APPEND config_module_list src/modules/pwm)
 list(APPEND config_module_list src/modules/dshot)
+list(APPEND config_module_list src/modules/motor_test)
+list(APPEND config_module_list src/modules/microair_test)
 list(APPEND config_module_list src/modules/control_loop)
 # list(APPEND config_module_list src/modules/hello_nuttx)
 list(APPEND config_module_list src/modules/vibration)
@@ -120,11 +122,11 @@ target_link_libraries(${EXE_NAME}
   -Wl,--gc-sections
 )
 target_link_libraries(${EXE_NAME} -Wl,--start-group)
-target_link_libraries(${EXE_NAME} gcc)
 target_link_libraries(${EXE_NAME} ${NUTTX_LIBS})
 target_link_libraries(${EXE_NAME} drivers_board)
 target_link_libraries(${EXE_NAME} ${module_libraries})
 target_link_libraries(${EXE_NAME} -Wl,--end-group)
+target_link_libraries(${EXE_NAME} gcc m)  # Link gcc and math last for EABI functions
 
 set(ELF_FILE ${CMAKE_BINARY_DIR}/${EXE_NAME}.elf)
 set(BIN_FILE ${CMAKE_BINARY_DIR}/${EXE_NAME}.bin)
